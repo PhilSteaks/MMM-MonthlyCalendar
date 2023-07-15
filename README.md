@@ -49,3 +49,9 @@ The following properties can be configured:
 |`luminanceThreshold`|`110`|The luminance value above which full-day event text will be drawn black.|
 |`showWeekNumber`|`false`|Whether to show the week number of the first day of each row.|
 |`wrapTitles`|`false`|Whether to allow event titles to wrap across multiple lines or truncate them.|
+|`displayTime`|`true`|Whether to show the time of events.|
+|`moduleHeight`|`100%`|Height of the overall module.|
+|`moduleWidth`|`100%`|Width of the overall module.|
+|`cellHeightPixels`|`100`|Height of each individual cell.|
+|`fontSizePixels`|`16`|Text size for events.|
+|`duplicateEventColor`|`rgba(100,100,100,1.0)`|Color for duplicate events from multiple calendars.|

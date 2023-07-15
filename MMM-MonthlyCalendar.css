@@ -3,6 +3,10 @@
   table-layout: fixed;
 }
 
+.MMM-MonthlyCalendar .module-wrapper {
+  overflow: hidden;
+}
+
 .MMM-MonthlyCalendar .header {
   text-align: center;
 }
@@ -17,21 +21,30 @@
   vertical-align: top;
 }
 
+.MMM-MonthlyCalendar .cell-contents {
+  overflow: hidden;
+  text-overflow:ellipsis;
+}
+
 .MMM-MonthlyCalendar .today {
   background-color: rgba(192, 192, 192, 0.2);
+  border: 1px solid rgba(240, 240, 240, 1.0);
 }
 
 .MMM-MonthlyCalendar .event {
   text-align: left;
   padding-left: 0.5ex;
   padding-right: 0.5ex;
+  /* If changing this, change eventHeight in .js too */
   margin-bottom: 1px;
   border-radius: 4px;
+  text-overflow:ellipsis;
 }
 
 .MMM-MonthlyCalendar .event-nowrap {
+  overflow: hidden;
   white-space: nowrap;
-  overflow-x: hidden;
+  text-overflow:ellipsis;
 }
 
 .MMM-MonthlyCalendar .event-label {

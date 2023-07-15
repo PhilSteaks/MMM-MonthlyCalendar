@@ -18,7 +18,7 @@ function addOneDay(d) {
 function diffDays(a, b) {
   a = new Date(a);
   b = new Date(b);
-  
+
   a.setHours(0, 0, 0, 0);
   b.setHours(0, 0, 0, 0);
 
@@ -72,6 +72,12 @@ Module.register("MMM-MonthlyCalendar", {
     wrapTitles: false,
     hideCalendars: [],
     luminanceThreshold: 110,
+    displayTime: true,
+    moduleHeight: "100%",
+    moduleWidth: "100%",
+    cellHeightPixels: 100,
+    fontSizePixels: 16,
+    duplicateEventColor: "rgba(100,100,100,1.0)",
   },
 
   start: function() {
@@ -106,6 +112,8 @@ Module.register("MMM-MonthlyCalendar", {
         return e;
       }).filter(e => {
         return !self.config.hideCalendars.includes(e.calendarName);
+      }).filter(e => {
+        return !(e.calendarName === undefined);
       });
 
       if (self.updateTimer !== null) {
@@ -121,6 +129,8 @@ Module.register("MMM-MonthlyCalendar", {
             return a.startDate - b.startDate;
           });
 
+        self.deDupEvents();
+
         if (today !== self.displayedDay || !equals(self.events, self.displayedEvents)) {
           self.displayedDay = today;
           self.displayedEvents = self.events;
@@ -130,6 +140,36 @@ Module.register("MMM-MonthlyCalendar", {
         }
       }, 5000);
     }
+  },
+
+  deDupEvents: function () {
+    var self = this;
+    const ALL_CALENDARS = "ALL";
+    var calendarSets = {};
+    var eventMap = {};
+    calendarSets[ALL_CALENDARS] = new Set();
+
+    for (var i in self.events) {
+      let ev = self.events[i];
+      let eventId = ev.title + ev.startDate.toString() + ev.endDate.toString();
+      let calendar = ev.calendarName;
+      if (!(calendar in calendarSets)) {
+        calendarSets[calendar] = new Set();
+      }
+
+      if (calendarSets[ALL_CALENDARS].has(eventId)) {
+        if (calendarSets[calendar].has(eventId)) {
+          continue;
+        }
+        ev.color = self.config.duplicateEventColor;
+      }
+
+      calendarSets[ALL_CALENDARS].add(eventId);
+      calendarSets[calendar].add(eventId);
+      eventMap[eventId] = ev;
+    }
+
+    self.events = eventMap;
   },
 
   getStyles: function () {
@@ -152,12 +192,23 @@ Module.register("MMM-MonthlyCalendar", {
     const table = el("table", { "className": "small wrapper" });
     const today = now.getDate();
     const mode = self.config.mode.toLowerCase();
+    var moduleWrapper = el("div", {"className": "module-wrapper"});
     let firstDayOfWeek = self.config.firstDayOfWeek.toLowerCase();
     var row = el("tr");
     var cell;
+    var cellContents;
     var cellIndex, monthDays;
     var dateCells = [];
+    var eventsInCell = [];
+    var eventDivsForCell = {};
     var startDayOffset = 0;
+
+    moduleWrapper.style.maxHeight = self.config.moduleHeight;
+    moduleWrapper.style.maxWidth = self.config.moduleWidth;
+    const eventHeight = self.config.fontSizePixels + 1 + 4;  // From the css .event margin and border
+    const maxEvents = Math.floor(self.config.cellHeightPixels / eventHeight);
+
+    moduleWrapper.appendChild(table);
 
     if (firstDayOfWeek === "today") {
       firstDayOfWeek = days[now.getDay()].toLowerCase();
@@ -189,16 +240,19 @@ Module.register("MMM-MonthlyCalendar", {
       }
     }
 
+    // Add column for week number
     if (self.config.showWeekNumber) {
       row.appendChild(el("th", { "className": "weeknum" }));
     }
 
+    // Add columns for each day of week and populate with long name e.g. Sunday, Monday, ...
     for (var day = 0; day < 7; ++day) {
       const headerDate = new Date(now.getFullYear(), now.getMonth(), cellIndex + day);
       row.appendChild(el("th", { "className": "header", "innerHTML": headerDate.toLocaleString(config.language, { weekday: "long" }) }));
     }
     table.appendChild(row);
 
+    // For each week
     for (var week = 0; week < 6 && cellIndex <= monthDays; ++week) {
       row = el("tr", { "className": "xsmall" });
       if (self.config.showWeekNumber) {
@@ -210,6 +264,7 @@ Module.register("MMM-MonthlyCalendar", {
         var cellDate = new Date(now.getFullYear(), now.getMonth(), cellIndex);
         var cellDay = cellDate.getDate();
 
+        // Create a cell and tag it
         cell = el("td", { "className": "cell" });
         if (["lastmonth", "nextmonth"].includes(mode)) {
           // Do nothing
@@ -221,13 +276,21 @@ Module.register("MMM-MonthlyCalendar", {
           cell.classList.add("past-date");
         }
 
+        // Add 3 letter month to the top left cell and the 1st
         if ((week === 0 && day === 0) || cellDay === 1) {
           cellDay = cellDate.toLocaleString(config.language, { month: "short", day: "numeric" });
         }
 
+        // Add cell to the row with the day number on top
         cell.appendChild(el("div", { "innerHTML": cellDay }));
         row.appendChild(cell);
-        dateCells[cellIndex] = cell;
+
+        cellContents = el("div", {"className": "cell-contents"});
+        cellContents.style.maxHeight = self.config.cellHeightPixels.toString() + "px";
+        cell.appendChild(cellContents);
+        dateCells[cellIndex] = cellContents;
+        eventsInCell[cellIndex] = 0;
+        eventDivsForCell[cellIndex] = [];
       }
 
       table.appendChild(row);
@@ -235,57 +298,85 @@ Module.register("MMM-MonthlyCalendar", {
 
     var monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     var monthEnd = new Date(now.getFullYear(), now.getMonth(), monthDays, 23, 59, 59);
+
     for (var i in self.events) {
       var e = self.events[i];
 
       for (var eventDate = e.startDate; eventDate <= e.endDate; eventDate = addOneDay(eventDate)) {
+        // Days from the start of the month
         var dayDiff = diffDays(eventDate, monthStart);
 
-        if (dayDiff in dateCells) {
-          let div = el("div", { "className": "event" });
-          if (!self.config.wrapTitles) {
-            div.classList.add("event-nowrap");
-          }
+        // If the event day falls within our displayed days
+        if (!(dayDiff in dateCells)) {
+          continue;
+        }
 
-          if (!e.fullDayEvent) {
-            function formatTime(d) {
-              var h = d.getHours();
-              var m = d.getMinutes().toString().padStart(2, "0");
-              if (config.timeFormat === 12) {
-                return (h % 12 || 12) + (m > 0 ? `:${m}` : "") + (h < 12 ? "am" : "pm");
-              } else {
-                return `${h}:${m}`;
-              }
-            }
-            div.appendChild(el("span", { "className": "event-label", "innerText": formatTime(e.startDate) }));
-          }
+        let div = el("div", { "className": "event" });
+        if (!self.config.wrapTitles) {
+          div.classList.add("event-nowrap");
+        }
 
-          if (self.config.displaySymbol) {
-            for (let symbol of e.symbol) {
-              div.appendChild(el("span", { "className": `event-label fa fa-${symbol}` }));
-            }
-          }
-
-          div.appendChild(el("span", { "innerText": e.title }));
-
-          if (e.color) {
-            var c = e.color;
-
-            if (e.fullDayEvent) {
-              div.style.backgroundColor = c;
-              if (getLuminance(div.style.backgroundColor) >= self.config.luminanceThreshold) {
-                div.style.color = "black";
-              }
+        // Add time if not a full day event
+        if (!e.fullDayEvent && self.config.displayTime) {
+          function formatTime(d) {
+            var h = d.getHours();
+            var m = d.getMinutes().toString().padStart(2, "0");
+            if (config.timeFormat === 12) {
+              return (h % 12 || 12) + (m > 0 ? `:${m}` : "") + (h < 12 ? "am" : "pm");
             } else {
-              div.style.color = c;
+              return `${h}:${m}`;
             }
           }
+          div.appendChild(el("span", { "className": "event-label", "innerText": formatTime(e.startDate) }));
+        }
 
-          dateCells[dayDiff].appendChild(div);
+        if (self.config.displaySymbol) {
+          for (let symbol of e.symbol) {
+            div.appendChild(el("span", { "className": `event-label fa fa-${symbol}` }));
+          }
+        }
+
+        div.appendChild(el("span", { "innerText": e.title }));
+        div.style.fontSize = self.config.fontSizePixels.toString() + "px";
+
+        if (e.color) {
+          var c = e.color;
+
+          if (e.fullDayEvent) {
+            div.style.backgroundColor = c;
+            if (getLuminance(div.style.backgroundColor) >= self.config.luminanceThreshold) {
+              div.style.color = "black";
+            }
+          } else {
+            div.style.color = c;
+          }
+        }
+
+        eventDivsForCell[dayDiff].push(div);
+      }
+    }
+
+    // Add events into cells
+    for (day in dateCells) {
+      let elipses = el("div", { "className": "event" });
+      elipses.appendChild(el("span", { "innerText": "   · · ·" }));
+      elipses.style.fontWeight = "bold";
+
+      for (div in eventDivsForCell[day]) {
+        if (++eventsInCell[day] < maxEvents) {
+          dateCells[day].appendChild(eventDivsForCell[day][div]);
+        } else {
+          // If number of events matches max, show it. Otherwise show elipses
+          if (eventDivsForCell[day].length === maxEvents) {
+            dateCells[day].appendChild(eventDivsForCell[day][div]);
+          } else {
+            dateCells[day].appendChild(elipses);
+            break;
+          }
         }
       }
     }
 
-    return table;
+    return moduleWrapper;
   },
 });
