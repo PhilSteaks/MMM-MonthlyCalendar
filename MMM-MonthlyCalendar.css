@@ -23,12 +23,12 @@
 
 .MMM-MonthlyCalendar .cell-contents {
   overflow: hidden;
-  text-overflow:ellipsis;
+  text-overflow: ellipsis;
 }
 
 .MMM-MonthlyCalendar .today {
   background-color: rgba(192, 192, 192, 0.2);
-  border: 1px solid rgba(240, 240, 240, 1.0);
+  border: 1px solid rgba(240, 240, 240, 1);
 }
 
 .MMM-MonthlyCalendar .event {
@@ -38,13 +38,13 @@
   /* If changing this, change eventHeight in .js too */
   margin-bottom: 1px;
   border-radius: 4px;
-  text-overflow:ellipsis;
+  text-overflow: ellipsis;
 }
 
 .MMM-MonthlyCalendar .event-nowrap {
   overflow: hidden;
   white-space: nowrap;
-  text-overflow:ellipsis;
+  text-overflow: ellipsis;
 }
 
 .MMM-MonthlyCalendar .event-label {
@@ -58,4 +58,3 @@
 .MMM-MonthlyCalendar .past-date {
   filter: brightness(75%);
 }
-
